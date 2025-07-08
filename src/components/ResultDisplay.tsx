@@ -1,4 +1,19 @@
-export default function ResultDisplay({ result, onNewQuiz }) {
+import type { Component } from "solid-js";
+
+interface Result {
+  question: string;
+  userAnswer: string;
+  isCorrect: boolean;
+  correctAnswer: string;
+  explanation: string;
+}
+
+interface ResultDisplayProps {
+  result: Result;
+  onNewQuiz: () => void;
+}
+
+const ResultDisplay: Component<ResultDisplayProps> = ({ result, onNewQuiz }) => {
   return (
     <div class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-2xl">
@@ -47,4 +62,6 @@ export default function ResultDisplay({ result, onNewQuiz }) {
       </div>
     </div>
   );
-}
+};
+
+export default ResultDisplay;

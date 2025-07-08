@@ -1,18 +1,31 @@
 import { createSignal, Show } from "solid-js";
+import type { Component } from "solid-js";
 import ThemeInput from "./ThemeInput";
 import QuizDisplay from "./QuizDisplay";
 import ResultDisplay from "./ResultDisplay";
 import { generateQuiz, validateAnswer } from "../services/api";
+import type { ValidationResult } from "../services/api";
 
-export default function QuizApp() {
-  const [screen, setScreen] = createSignal("theme"); // theme, quiz, result
-  const [theme, setTheme] = createSignal("");
-  const [quiz, setQuiz] = createSignal(null);
-  const [result, setResult] = createSignal(null);
-  const [loading, setLoading] = createSignal(false);
-  const [error, setError] = createSignal("");
+type Screen = "theme" | "quiz" | "result";
 
-  const handleThemeSubmit = async (submittedTheme) => {
+interface Quiz {
+  question: string;
+}
+
+interface Result extends ValidationResult {
+  question: string;
+  userAnswer: string;
+}
+
+const QuizApp: Component = () => {
+  const [screen, setScreen] = createSignal<Screen>("theme");
+  const [theme, setTheme] = createSignal<string>("");
+  const [quiz, setQuiz] = createSignal<Quiz | null>(null);
+  const [result, setResult] = createSignal<Result | null>(null);
+  const [loading, setLoading] = createSignal<boolean>(false);
+  const [error, setError] = createSignal<string>("");
+
+  const handleThemeSubmit = async (submittedTheme: string) => {
     setTheme(submittedTheme);
     setLoading(true);
     setError("");
@@ -22,26 +35,29 @@ export default function QuizApp() {
       setQuiz({ question });
       setScreen("quiz");
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAnswerSubmit = async (answer) => {
+  const handleAnswerSubmit = async (answer: string) => {
     setLoading(true);
     setError("");
 
     try {
-      const validation = await validateAnswer(quiz().question, answer, false);
+      const currentQuiz = quiz();
+      if (!currentQuiz) return;
+      
+      const validation = await validateAnswer(currentQuiz.question, answer, false);
       setResult({
-        question: quiz().question,
+        question: currentQuiz.question,
         userAnswer: answer,
         ...validation
       });
       setScreen("result");
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setLoading(false);
     }
@@ -82,12 +98,14 @@ export default function QuizApp() {
       </Show>
 
       <Show when={screen() === "quiz" && quiz()}>
-        <QuizDisplay quiz={quiz()} onSubmit={handleAnswerSubmit} />
+        <QuizDisplay quiz={quiz()!} onSubmit={handleAnswerSubmit} />
       </Show>
 
       <Show when={screen() === "result" && result()}>
-        <ResultDisplay result={result()} onNewQuiz={handleNewQuiz} />
+        <ResultDisplay result={result()!} onNewQuiz={handleNewQuiz} />
       </Show>
     </>
   );
-}
+};
+
+export default QuizApp;

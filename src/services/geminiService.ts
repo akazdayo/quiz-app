@@ -1,36 +1,83 @@
-import { GoogleGenAI } from '@google/genai';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { HumanMessage } from '@langchain/core/messages';
+import { StringOutputParser } from '@langchain/core/output_parsers';
+import { PromptTemplate } from '@langchain/core/prompts';
+
+interface SearchResult {
+  query: string;
+  results: string;
+  timestamp: string;
+}
+
+interface WebContent {
+  url: string;
+  content: string;
+  fetchedAt: string;
+}
+
+interface ValidationResult {
+  isCorrect: boolean;
+  correctAnswer: string;
+  explanation: string;
+}
+
+interface ResearchResult {
+  topic: string;
+  depth: string;
+  researchResults: Array<{
+    query: string;
+    findings: string;
+  }>;
+  timestamp: string;
+}
+
+interface QuizOptions {
+  searchForContext?: boolean;
+  fetchSpecificUrl?: string | null;
+  difficulty?: string;
+  questionType?: string;
+}
 
 class GeminiService {
-  constructor() {
-    const apiKey = import.meta.env.GEMINI_API_KEY;
-    if (!apiKey) {
+  private model: ChatGoogleGenerativeAI;
+  private parser: StringOutputParser;
+
+  constructor(apiKey?: string) {
+    const key = apiKey || import.meta.env.PUBLIC_GEMINI_API_KEY || process.env.PUBLIC_GEMINI_API_KEY;
+    if (!key) {
       throw new Error('Gemini API key is not set');
     }
-    this.ai = new GoogleGenAI({ apiKey });
+    
+    this.model = new ChatGoogleGenerativeAI({
+      apiKey: key,
+      model: 'gemini-2.0-flash',
+      temperature: 0.7,
+      maxOutputTokens: 2048,
+    });
+    
+    this.parser = new StringOutputParser();
   }
 
-  async searchWeb(query, options = {}) {
+  async searchWeb(query: string): Promise<SearchResult> {
     try {
-      const searchPrompt = `
+      const searchPrompt = PromptTemplate.fromTemplate(`
 Web検索を実行して、以下のクエリに関する情報を取得してください。
 
-検索クエリ: ${query}
+検索クエリ: {query}
 
 要求:
 1. 最新の情報を優先してください
 2. 信頼できるソースからの情報を選択してください
 3. 簡潔で要点をまとめた形式で結果を返してください
 
-検索結果:`;
+検索結果:`);
 
-      const response = await this.ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: searchPrompt,
-      });
+      const chain = searchPrompt.pipe(this.model).pipe(this.parser);
+      const results = await chain.invoke({ query });
       
       return {
-        query: query,
-        results: response.text.trim(),
+        query,
+        results: results.trim(),
         timestamp: new Date().toISOString()
       };
     } catch (error) {
@@ -39,29 +86,30 @@ Web検索を実行して、以下のクエリに関する情報を取得して�
     }
   }
 
-  async fetchWebContent(url, extractionPrompt = null) {
+  async fetchWebContent(url: string, extractionPrompt?: string | null): Promise<WebContent> {
     try {
-      const fetchPrompt = `
+      const fetchPrompt = PromptTemplate.fromTemplate(`
 以下のURLからコンテンツを取得して分析してください。
 
-URL: ${url}
-${extractionPrompt ? `\n抽出したい情報: ${extractionPrompt}` : ''}
+URL: {url}
+{extractionPrompt}
 
 要求:
 1. 主要なコンテンツを抽出してください
 2. 構造化された形式で情報を整理してください
 3. 重要なポイントを強調してください
 
-分析結果:`;
+分析結果:`);
 
-      const response = await this.ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: fetchPrompt,
+      const chain = fetchPrompt.pipe(this.model).pipe(this.parser);
+      const content = await chain.invoke({ 
+        url, 
+        extractionPrompt: extractionPrompt ? `\n抽出したい情報: ${extractionPrompt}` : ''
       });
       
       return {
-        url: url,
-        content: response.text.trim(),
+        url,
+        content: content.trim(),
         fetchedAt: new Date().toISOString()
       };
     } catch (error) {
@@ -70,7 +118,7 @@ ${extractionPrompt ? `\n抽出したい情報: ${extractionPrompt}` : ''}
     }
   }
 
-  async generateQuiz(theme, useWebSearch = false) {
+  async generateQuiz(theme: string, useWebSearch: boolean = false): Promise<string> {
     let additionalContext = '';
     
     if (useWebSearch) {
@@ -82,33 +130,36 @@ ${extractionPrompt ? `\n抽出したい情報: ${extractionPrompt}` : ''}
       }
     }
     
-    const prompt = `
+    const prompt = PromptTemplate.fromTemplate(`
 あなたはクイズの出題者です。以下のテーマに関する興味深いクイズを1問作成してください。
 
-テーマ: ${theme}${additionalContext}
+テーマ: {theme}{additionalContext}
 
 要求:
 1. 問題文は具体的で明確にしてください
 2. 難易度は中級程度にしてください
 3. 解答は自由記述形式で答えられる問題にしてください
 4. 問題文のみを返してください（解答や解説は含めないでください）
-${useWebSearch ? '5. Web検索で得た最新の情報を活用してください' : ''}
+{webSearchNote}
 
-問題:`;
+問題:`);
 
     try {
-      const response = await this.ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: prompt,
+      const chain = prompt.pipe(this.model).pipe(this.parser);
+      const question = await chain.invoke({
+        theme,
+        additionalContext,
+        webSearchNote: useWebSearch ? '5. Web検索で得た最新の情報を活用してください' : ''
       });
-      return response.text.trim();
+      
+      return question.trim();
     } catch (error) {
       console.error('Error generating quiz:', error);
       throw new Error('クイズの生成に失敗しました');
     }
   }
 
-  async validateAnswer(question, userAnswer, useWebSearch = false) {
+  async validateAnswer(question: string, userAnswer: string, useWebSearch: boolean = false): Promise<ValidationResult> {
     let additionalInfo = '';
     
     if (useWebSearch) {
@@ -121,34 +172,36 @@ ${useWebSearch ? '5. Web検索で得た最新の情報を活用してくださ�
       }
     }
     
-    const prompt = `
+    const prompt = PromptTemplate.fromTemplate(`
 以下のクイズ問題に対するユーザーの解答を評価してください。
 
-問題: ${question}
-ユーザーの解答: ${userAnswer}${additionalInfo}
+問題: {question}
+ユーザーの解答: {userAnswer}{additionalInfo}
 
 以下のJSON形式で返答してください:
-{
+{{
   "isCorrect": boolean (正解かどうか),
   "correctAnswer": string (模範解答),
   "explanation": string (解説)
-}
+}}
 
 注意:
 - 完全一致でなくても、意味が正しければ正解としてください
 - 部分的に正しい場合も考慮してください
 - 解説は分かりやすく、教育的なものにしてください
-${useWebSearch ? '- Web検索の結果も参考にして、より正確な評価を行ってください' : ''}`;
+{webSearchNote}`);
 
     try {
-      const response = await this.ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: prompt,
+      const chain = prompt.pipe(this.model).pipe(this.parser);
+      const response = await chain.invoke({
+        question,
+        userAnswer,
+        additionalInfo,
+        webSearchNote: useWebSearch ? '- Web検索の結果も参考にして、より正確な評価を行ってください' : ''
       });
-      const text = response.text;
       
       // JSONを抽出
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         return JSON.parse(jsonMatch[0]);
       } else {
@@ -160,7 +213,7 @@ ${useWebSearch ? '- Web検索の結果も参考にして、より正確な評価
     }
   }
 
-  async generateEnhancedQuiz(theme, options = {}) {
+  async generateEnhancedQuiz(theme: string, options: QuizOptions = {}): Promise<string> {
     const { 
       searchForContext = true, 
       fetchSpecificUrl = null,
@@ -191,12 +244,12 @@ ${useWebSearch ? '- Web検索の結果も参考にして、より正確な評価
       }
     }
     
-    const prompt = `
+    const prompt = PromptTemplate.fromTemplate(`
 あなたは知識豊富なクイズ出題者です。以下のテーマと情報を基に、興味深くて教育的なクイズを作成してください。
 
-テーマ: ${theme}
-難易度: ${difficulty}
-問題形式: ${questionType}${contextData}
+テーマ: {theme}
+難易度: {difficulty}
+問題形式: {questionType}{contextData}
 
 要求:
 1. 最新の情報や興味深い事実を活用してください
@@ -205,21 +258,25 @@ ${useWebSearch ? '- Web検索の結果も参考にして、より正確な評価
 4. 回答者が考えさせられる問題にしてください
 5. 問題文のみを返してください（解答や解説は含めないでください）
 
-問題:`;
+問題:`);
 
     try {
-      const response = await this.ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: prompt,
+      const chain = prompt.pipe(this.model).pipe(this.parser);
+      const question = await chain.invoke({
+        theme,
+        difficulty,
+        questionType,
+        contextData
       });
-      return response.text.trim();
+      
+      return question.trim();
     } catch (error) {
       console.error('Error generating enhanced quiz:', error);
       throw new Error('拡張クイズの生成に失敗しました');
     }
   }
 
-  async researchTopic(topic, depth = 'normal') {
+  async researchTopic(topic: string, depth: 'normal' | 'deep' = 'normal'): Promise<ResearchResult> {
     const queries = depth === 'deep' 
       ? [
           `${topic} 基本情報 概要`,
@@ -230,13 +287,13 @@ ${useWebSearch ? '- Web検索の結果も参考にして、より正確な評価
         ]
       : [`${topic} 重要情報 まとめ`];
     
-    const results = [];
+    const results: Array<{ query: string; findings: string }> = [];
     
     for (const query of queries) {
       try {
         const searchResult = await this.searchWeb(query);
         results.push({
-          query: query,
+          query,
           findings: searchResult.results
         });
       } catch (error) {
@@ -245,8 +302,8 @@ ${useWebSearch ? '- Web検索の結果も参考にして、より正確な評価
     }
     
     return {
-      topic: topic,
-      depth: depth,
+      topic,
+      depth,
       researchResults: results,
       timestamp: new Date().toISOString()
     };

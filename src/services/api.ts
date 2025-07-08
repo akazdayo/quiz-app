@@ -1,6 +1,6 @@
 const API_BASE = '/api/quiz';
 
-export async function generateQuiz(theme, useWebSearch = false) {
+export async function generateQuiz(theme: string, useWebSearch: boolean = false): Promise<string> {
   const response = await fetch(`${API_BASE}/generate.json`, {
     method: 'POST',
     headers: {
@@ -18,7 +18,17 @@ export async function generateQuiz(theme, useWebSearch = false) {
   return data.question;
 }
 
-export async function validateAnswer(question, userAnswer, useWebSearch = false) {
+export interface ValidationResult {
+  isCorrect: boolean;
+  correctAnswer: string;
+  explanation: string;
+}
+
+export async function validateAnswer(
+  question: string, 
+  userAnswer: string, 
+  useWebSearch: boolean = false
+): Promise<ValidationResult> {
   const response = await fetch(`${API_BASE}/validate.json`, {
     method: 'POST',
     headers: {

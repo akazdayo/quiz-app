@@ -1,9 +1,19 @@
 import { createSignal } from "solid-js";
+import type { Component } from "solid-js";
 
-export default function QuizDisplay({ quiz, onSubmit }) {
-  const [answer, setAnswer] = createSignal("");
+interface Quiz {
+  question: string;
+}
 
-  const handleSubmit = (e) => {
+interface QuizDisplayProps {
+  quiz: Quiz;
+  onSubmit: (answer: string) => void;
+}
+
+const QuizDisplay: Component<QuizDisplayProps> = ({ quiz, onSubmit }) => {
+  const [answer, setAnswer] = createSignal<string>("");
+
+  const handleSubmit = (e: Event) => {
     e.preventDefault();
     if (answer().trim()) {
       onSubmit(answer());
@@ -26,7 +36,7 @@ export default function QuizDisplay({ quiz, onSubmit }) {
             <textarea
               id="answer"
               value={answer()}
-              onInput={(e) => setAnswer(e.target.value)}
+              onInput={(e) => setAnswer(e.currentTarget.value)}
               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
               placeholder="ここに解答を入力してください"
               required
@@ -42,4 +52,6 @@ export default function QuizDisplay({ quiz, onSubmit }) {
       </div>
     </div>
   );
-}
+};
+
+export default QuizDisplay;

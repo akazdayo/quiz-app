@@ -1,8 +1,9 @@
-import GeminiService from '../../../services/geminiService.js';
+import type { APIRoute } from 'astro';
+import GeminiService from '../../../services/geminiService';
 
 export const prerender = false;
 
-export async function POST({ request }) {
+export const POST: APIRoute = async ({ request }) => {
   try {
     const { question, userAnswer, useWebSearch } = await request.json();
     
@@ -13,7 +14,8 @@ export async function POST({ request }) {
       });
     }
 
-    const geminiService = new GeminiService();
+    const apiKey = import.meta.env.PUBLIC_GEMINI_API_KEY;
+    const geminiService = new GeminiService(apiKey);
     const result = await geminiService.validateAnswer(question, userAnswer, useWebSearch);
     
     return new Response(JSON.stringify(result), {
@@ -27,4 +29,4 @@ export async function POST({ request }) {
       headers: { 'Content-Type': 'application/json' }
     });
   }
-}
+};

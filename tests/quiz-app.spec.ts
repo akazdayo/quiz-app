@@ -4,7 +4,7 @@ test.describe('Quiz App E2E Tests', () => {
   test.beforeEach(async ({ page }) => {
     // Disable Astro dev toolbar
     await page.addInitScript(() => {
-      window.__astro_dev_toolbar__ = null;
+      (window as any).__astro_dev_toolbar__ = null;
     });
     await page.goto('/');
   });

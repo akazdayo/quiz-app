@@ -13,7 +13,10 @@ export default defineConfig({
   integrations: [solidJs()],
 
   vite: {
-    plugins: [tailwindcss()]
+    plugins: [tailwindcss()],
+    resolve: {
+      extensions: ['.mjs', '.js', '.ts', '.tsx', '.json']
+    }
   },
 
   adapter: vercel(),

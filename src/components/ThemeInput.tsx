@@ -1,9 +1,14 @@
 import { createSignal } from "solid-js";
+import type { Component } from "solid-js";
 
-export default function ThemeInput({ onSubmit }) {
-  const [theme, setTheme] = createSignal("");
+interface ThemeInputProps {
+  onSubmit: (theme: string) => void;
+}
 
-  const handleSubmit = (e) => {
+const ThemeInput: Component<ThemeInputProps> = ({ onSubmit }) => {
+  const [theme, setTheme] = createSignal<string>("");
+
+  const handleSubmit = (e: Event) => {
     e.preventDefault();
     if (theme().trim()) {
       onSubmit(theme());
@@ -25,7 +30,7 @@ export default function ThemeInput({ onSubmit }) {
               id="theme"
               type="text"
               value={theme()}
-              onInput={(e) => setTheme(e.target.value)}
+              onInput={(e) => setTheme(e.currentTarget.value)}
               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="例: 日本の歴史、プログラミング、科学"
               required
@@ -41,4 +46,6 @@ export default function ThemeInput({ onSubmit }) {
       </div>
     </div>
   );
-}
+};
+
+export default ThemeInput;
