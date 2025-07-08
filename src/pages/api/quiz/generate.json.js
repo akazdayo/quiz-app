@@ -1,5 +1,7 @@
 import GeminiService from '../../../services/geminiService.js';
 
+export const prerender = false;
+
 export async function POST({ request }) {
   try {
     const { theme, useWebSearch } = await request.json();
