@@ -1,8 +1,8 @@
-import { createSignal, onMount, Show } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import ThemeInput from "./ThemeInput";
 import QuizDisplay from "./QuizDisplay";
 import ResultDisplay from "./ResultDisplay";
-import GeminiService from "../services/geminiService";
+import { generateQuiz, validateAnswer } from "../services/api";
 
 export default function QuizApp() {
   const [screen, setScreen] = createSignal("theme"); // theme, quiz, result
@@ -11,16 +11,6 @@ export default function QuizApp() {
   const [result, setResult] = createSignal(null);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal("");
-  
-  let geminiService;
-
-  onMount(() => {
-    try {
-      geminiService = new GeminiService();
-    } catch (err) {
-      setError("Gemini APIの初期化に失敗しました。APIキーを確認してください。");
-    }
-  });
 
   const handleThemeSubmit = async (submittedTheme) => {
     setTheme(submittedTheme);
@@ -28,7 +18,7 @@ export default function QuizApp() {
     setError("");
 
     try {
-      const question = await geminiService.generateQuiz(submittedTheme);
+      const question = await generateQuiz(submittedTheme, false);
       setQuiz({ question });
       setScreen("quiz");
     } catch (err) {
@@ -43,7 +33,7 @@ export default function QuizApp() {
     setError("");
 
     try {
-      const validation = await geminiService.validateAnswer(quiz().question, answer);
+      const validation = await validateAnswer(quiz().question, answer, false);
       setResult({
         question: quiz().question,
         userAnswer: answer,

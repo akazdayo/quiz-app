@@ -27,30 +27,14 @@ test.describe('Quiz App E2E Tests', () => {
     // Mock the API response for faster testing
     await page.route('**/*', async route => {
       const url = route.request().url();
-      if (url.includes('generativelanguage.googleapis.com') || url.includes('generateContent')) {
-        const request = route.request();
-        const postData = request.postData();
-        
-        if (postData && postData.includes('クイズを1問作成してください')) {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-              candidates: [{
-                content: {
-                  parts: [{
-                    text: '日本で最も高い山は何という山ですか？'
-                  }],
-                  role: 'model'
-                },
-                finishReason: 'STOP',
-                safetyRatings: []
-              }]
-            })
-          });
-        } else {
-          await route.continue();
-        }
+      if (url.includes('/api/quiz/generate.json')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            question: '日本で最も高い山は何という山ですか？'
+          })
+        });
       } else {
         await route.continue();
       }
@@ -74,51 +58,24 @@ test.describe('Quiz App E2E Tests', () => {
     // Mock API responses
     await page.route('**/*', async route => {
       const url = route.request().url();
-      if (url.includes('generativelanguage.googleapis.com') || url.includes('generateContent')) {
-        const request = route.request();
-        const postData = request.postData();
-        
-        if (postData && postData.includes('クイズを1問作成してください')) {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-              candidates: [{
-                content: {
-                  parts: [{
-                    text: '日本で最も高い山は何という山ですか？'
-                  }],
-                  role: 'model'
-                },
-                finishReason: 'STOP',
-                safetyRatings: []
-              }]
-            })
-          });
-        } else if (postData && postData.includes('ユーザーの解答を評価してください')) {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-              candidates: [{
-                content: {
-                  parts: [{
-                    text: `{
-                      "isCorrect": true,
-                      "correctAnswer": "富士山",
-                      "explanation": "正解です！富士山は標高3,776メートルで、日本最高峰の山です。"
-                    }`
-                  }],
-                  role: 'model'
-                },
-                finishReason: 'STOP',
-                safetyRatings: []
-              }]
-            })
-          });
-        } else {
-          await route.continue();
-        }
+      if (url.includes('/api/quiz/generate.json')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            question: '日本で最も高い山は何という山ですか？'
+          })
+        });
+      } else if (url.includes('/api/quiz/validate.json')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            isCorrect: true,
+            correctAnswer: '富士山',
+            explanation: '日本で最も高い山は富士山で、標高3,776メートルです。'
+          })
+        });
       } else {
         await route.continue();
       }
@@ -136,61 +93,35 @@ test.describe('Quiz App E2E Tests', () => {
 
     // Check result display
     await expect(page.locator('.bg-white h2').first()).toHaveText('判定結果');
-    await expect(page.locator('text=正解！')).toBeVisible();
+    await expect(page.locator('p.text-xl')).toHaveText('正解！');
     await expect(page.locator('text=あなたの解答:')).toBeVisible();
     await expect(page.locator('text=富士山').nth(1)).toBeVisible();
-    await expect(page.locator('.bg-white button')).toHaveText('新しいクイズを始める');
+    await expect(page.locator('text=正解例:')).toBeVisible();
+    await expect(page.locator('p').filter({ hasText: '日本で最も高い山は富士山で、標高3,776メートルです。' })).toBeVisible();
   });
 
   test('should handle incorrect answer', async ({ page }) => {
     // Mock API responses
     await page.route('**/*', async route => {
       const url = route.request().url();
-      if (url.includes('generativelanguage.googleapis.com') || url.includes('generateContent')) {
-        const request = route.request();
-        const postData = request.postData();
-        
-        if (postData && postData.includes('クイズを1問作成してください')) {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-              candidates: [{
-                content: {
-                  parts: [{
-                    text: '日本で最も高い山は何という山ですか？'
-                  }],
-                  role: 'model'
-                },
-                finishReason: 'STOP',
-                safetyRatings: []
-              }]
-            })
-          });
-        } else if (postData && postData.includes('ユーザーの解答を評価してください')) {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-              candidates: [{
-                content: {
-                  parts: [{
-                    text: `{
-                      "isCorrect": false,
-                      "correctAnswer": "富士山",
-                      "explanation": "残念ながら不正解です。日本最高峰は富士山（3,776m）です。"
-                    }`
-                  }],
-                  role: 'model'
-                },
-                finishReason: 'STOP',
-                safetyRatings: []
-              }]
-            })
-          });
-        } else {
-          await route.continue();
-        }
+      if (url.includes('/api/quiz/generate.json')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            question: '日本で最も高い山は何という山ですか？'
+          })
+        });
+      } else if (url.includes('/api/quiz/validate.json')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            isCorrect: false,
+            correctAnswer: '富士山',
+            explanation: '日本で最も高い山は富士山です。エベレストは世界最高峰ですが、ネパールとチベットの国境にあります。'
+          })
+        });
       } else {
         await route.continue();
       }
@@ -199,7 +130,6 @@ test.describe('Quiz App E2E Tests', () => {
     // Generate quiz
     await page.locator('input#theme').fill('日本の地理');
     await page.locator('button[type="submit"]').click();
-    await page.waitForSelector('text=処理中...', { state: 'hidden' });
     
     // Wait for quiz screen to appear
     await page.waitForSelector('textarea#answer', { state: 'visible' });
@@ -209,71 +139,45 @@ test.describe('Quiz App E2E Tests', () => {
     await page.locator('button[type="submit"]').click();
     await page.waitForSelector('text=処理中...', { state: 'hidden' });
 
-    // Check result display
+    // Check result display for incorrect answer
     await expect(page.locator('.bg-white h2').first()).toHaveText('判定結果');
-    await expect(page.locator('p:has-text("不正解")').first()).toBeVisible();
+    await expect(page.locator('p.text-xl')).toHaveText('不正解');
     await expect(page.locator('text=あなたの解答:')).toBeVisible();
-    await expect(page.locator('text=エベレスト')).toBeVisible();
+    await expect(page.locator('text=エベレスト').first()).toBeVisible();
+    await expect(page.locator('text=正解例:')).toBeVisible();
+    await expect(page.locator('p').filter({ hasText: '日本で最も高い山は富士山です。エベレストは世界最高峰ですが、ネパールとチベットの国境にあります。' })).toBeVisible();
   });
 
   test('should return to theme input after clicking new quiz button', async ({ page }) => {
     // Mock API responses
     await page.route('**/*', async route => {
       const url = route.request().url();
-      if (url.includes('generativelanguage.googleapis.com') || url.includes('generateContent')) {
-        const request = route.request();
-        const postData = request.postData();
-        
-        if (postData && postData.includes('クイズを1問作成してください')) {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-              candidates: [{
-                content: {
-                  parts: [{
-                    text: 'テスト問題'
-                  }],
-                  role: 'model'
-                },
-                finishReason: 'STOP',
-                safetyRatings: []
-              }]
-            })
-          });
-        } else if (postData && postData.includes('ユーザーの解答を評価してください')) {
-          await route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-              candidates: [{
-                content: {
-                  parts: [{
-                    text: `{
-                      "isCorrect": true,
-                      "correctAnswer": "正解",
-                      "explanation": "説明"
-                    }`
-                  }],
-                  role: 'model'
-                },
-                finishReason: 'STOP',
-                safetyRatings: []
-              }]
-            })
-          });
-        } else {
-          await route.continue();
-        }
+      if (url.includes('/api/quiz/generate.json')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            question: 'テスト問題'
+          })
+        });
+      } else if (url.includes('/api/quiz/validate.json')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            isCorrect: true,
+            correctAnswer: 'テスト正解',
+            explanation: 'テスト解説'
+          })
+        });
       } else {
         await route.continue();
       }
     });
 
-    // Complete a quiz cycle
+    // Generate quiz
     await page.locator('input#theme').fill('テスト');
     await page.locator('button[type="submit"]').click();
-    await page.waitForSelector('text=処理中...', { state: 'hidden' });
     
     // Wait for quiz screen to appear
     await page.waitForSelector('textarea#answer', { state: 'visible' });
@@ -283,10 +187,11 @@ test.describe('Quiz App E2E Tests', () => {
     await page.waitForSelector('text=処理中...', { state: 'hidden' });
 
     // Click new quiz button
-    await page.locator('button:has-text("新しいクイズを始める")').click();
+    await page.locator('button').filter({ hasText: '新しいクイズを始める' }).click();
 
-    // Should be back at theme input
+    // Check we're back at theme input
     await expect(page.locator('.bg-white h1').first()).toHaveText('クイズのテーマを入力してください');
+    await expect(page.locator('input#theme')).toBeVisible();
     await expect(page.locator('input#theme')).toHaveValue('');
   });
 
@@ -294,25 +199,30 @@ test.describe('Quiz App E2E Tests', () => {
     // Mock API to return error
     await page.route('**/*', async route => {
       const url = route.request().url();
-      if (url.includes('generativelanguage.googleapis.com') || url.includes('generateContent')) {
+      if (url.includes('/api/quiz/generate.json')) {
         await route.fulfill({
           status: 500,
           contentType: 'application/json',
-          body: JSON.stringify({ error: 'Internal Server Error' })
+          body: JSON.stringify({
+            error: 'クイズの生成に失敗しました'
+          })
         });
       } else {
         await route.continue();
       }
     });
 
-    await page.locator('input#theme').fill('エラーテスト');
+    // Try to generate quiz
+    await page.locator('input#theme').fill('テスト');
     await page.locator('button[type="submit"]').click();
     
-    // Wait for error to appear
-    await page.waitForTimeout(1000);
+    // Wait for loading to complete
+    await page.waitForSelector('text=処理中...', { state: 'hidden' });
 
-    // Check error display
-    await expect(page.locator('.bg-red-100')).toBeVisible();
-    await expect(page.locator('.bg-red-100')).toContainText('クイズの生成に失敗しました');
+    // Check error message is displayed
+    await expect(page.locator('.bg-red-100').filter({ hasText: 'クイズの生成に失敗しました' })).toBeVisible();
+    
+    // Should stay on theme input page
+    await expect(page.locator('.bg-white h1').first()).toHaveText('クイズのテーマを入力してください');
   });
 });
